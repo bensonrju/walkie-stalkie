@@ -1,58 +1,147 @@
-/*****************************************************************************************
-*     Serial Bluetooth communication between 2 ESP32 boards - OK1TK www.ok1tk.com        *
-*                   The CLIENT (SLAVE) part code v1.21 - 01 May 2023                     *
-******************************************************************************************/
-#include "BluetoothSerial.h"                                                  // BT: Include the Serial bluetooth library 
-#define LED_BT 2     
-                                      // BT: Variable used to store the CLIENT(slave) bluetooth Mac address; Use your own MAC address                                                          // BT: Internal LED (or LED on the pin D2) for the connection indication (connected solid/disconnected blinking)
-unsigned long previousMillis;                                                 // BT: Variable used for comparing millis counter (LED blinking)
-bool ledBtState = false;                                                      // BT: Variable used to chage the indication LED state
-bool MasterConnected;                                                         // BT: Variable used to store the current connection state (true=connected/false=disconnected)
-String device_name = "ESP32-BT-Slave";                                        // BT: Variable used to store the CLIENT(slave) bluetooth device name
-String MACadd = "1C:69:20:C6:5E:32"; 
-                                         // BT: Variable used to store the CLIENT(slave) bluetooth Mac address; Use your own MAC address
+#include "BluetoothSerial.h"  // BT: Include the Serial Bluetooth library
+#include <TinyGPSPlus.h>  // Include TinyGPSPlus library for GPS parsing
 
-// BT: Bluetooth availabilty check
+#define LED_BT 2  // BT: Internal LED (or LED on the pin D2) for the connection indication (connected solid/disconnected blinking)
+
+unsigned long previousMillis;  // BT: Variable used for comparing millis counter (LED blinking)
+bool ledBtState = false;  // BT: Variable used to change the indication LED state
+bool MasterConnected = false;  // BT: Variable to store the current connection state (true=connected/false=disconnected)
+String device_name = "ESP32-BT-Slave";  // BT: Device name for the slave (client)
+String MACadd = "1C:69:20:C6:5E:32";  // BT: Use the slave MAC address
+float Master_latitude = 0.0f;
+float Master_longitude = 0.0f;
+float my_lat = 0.0f;  // Variable to store the current GPS latitude
+float my_lng = 0.0f;  // Variable to store the current GPS longitude
+TinyGPSPlus gps;  // Create an instance of the TinyGPSPlus library
+HardwareSerial gpsSerial(1);  // Use hardware serial port 1 for GPS communication
+String gpsData = "";  // String to hold incoming GPS data
+
+// BT: Bluetooth availability check
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)                           
-#error Bluetooth is not enabled! Please run make menuconfig to and enable it
+#error Bluetooth is not enabled! Please run make menuconfig to enable it.
 #endif
-// BT: Serial Bluetooth availabilty check
+// BT: Serial Bluetooth availability check
 #if !defined(CONFIG_BT_SPP_ENABLED)
 #error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
 #endif
 
-BluetoothSerial SerialBT;                                                     // BT: Set the Object SerialBT
+BluetoothSerial SerialBT;  // BT: Set the Bluetooth Serial Object
 
 // BT: Bt_Status callback function
-void Bt_Status (esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
-
-  if (event == ESP_SPP_SRV_OPEN_EVT) {                                        // BT: Checks if the SPP Server connection is open, the event comes 
-    Serial.println ("Client Connected");                                      // BT: Write to the serial monitor;                                              // BT: Turn ON the bluetooth indication LED (solid light)
-    MasterConnected = true;                                                   // BT: Set the variable true = SERVER is connected to the CLIENT
+void Bt_Status(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
+  if (event == ESP_SPP_SRV_OPEN_EVT) {  // BT: Checks if the SPP Server connection is open
+    Serial.println("Master Connected");
+    MasterConnected = true;  // BT: Server is connected to the slave
   }
-  else if (event == ESP_SPP_CLOSE_EVT ) {                                     // BT: Checks if the SPP connection is closed, the event comes
-    Serial.println ("Client Disconnected");                                   // BT: Write to the serial monitor                                              // BT: Turn OFF the bluetooth indication LED
-    MasterConnected = false;                                                  // BT: Set the variable false = SERVER connection lost
+  else if (event == ESP_SPP_CLOSE_EVT) {  // BT: Checks if the SPP connection is closed
+    Serial.println("Master Disconnected");
+    MasterConnected = false;  // BT: Server connection lost
   }
 }
 
-void setup() {                                                  // BT: Set up the onboard LED pin as output
-  Serial.begin(115200);                                                       // Sets the data rate in bits per second (baud) for serial data transmission
+void gps_parse(String gpsData) {  // Fix: Pass gpsData as an argument to this function
+  if (gpsData.length() > 0) {  // Only proceed if the data is non-empty
+    Serial.print("Received GPS Data: ");
+    Serial.println(gpsData);  // Print the received GPS data to the serial monitor
+
+    // Parse the received data for latitude and longitude
+    if (gpsData.indexOf("Latitude:") != -1 && gpsData.indexOf("Longitude:") != -1) {
+      // Extract latitude and longitude from the string
+      int latIndex = gpsData.indexOf("Latitude:") + 9;  // Find the start of latitude value
+      int lonIndex = gpsData.indexOf("Longitude:") + 10;  // Find the start of longitude value
+      
+      String latStr = gpsData.substring(latIndex, gpsData.indexOf("Longitude:") - 1);  // Extract latitude substring
+      String lonStr = gpsData.substring(lonIndex);  // Extract longitude substring
+
+      // Convert the substrings to float values
+      Master_latitude = latStr.toFloat();
+      Master_longitude = lonStr.toFloat();
+
+      // Print the parsed latitude and longitude values
+      Serial.print("Parsed Latitude: ");
+      Serial.println(Master_latitude, 8);  // Print latitude with 8 decimal places
+      Serial.print("Parsed Longitude: ");
+      Serial.println(Master_longitude, 8);  // Print longitude with 8 decimal places
+    }
+  }
+}
+
+// Get the current GPS data from the GPS module
+void getGPSData() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());  // Send data to the GPS object for decoding
+  }
+
+  // Once data is processed, save the latitude and longitude to my_lat and my_lng
+  if (gps.location.isUpdated()) {  // Check if a new location update is available
+    my_lat = gps.location.lat();  // Get the latitude from the GPS module
+    my_lng = gps.location.lng();  // Get the longitude from the GPS module
+
+    // Print the current GPS coordinates
+    Serial.print("Current Latitude: ");
+    Serial.println(my_lat, 8);  // Print latitude with 8 decimal places
+    Serial.print("Current Longitude: ");
+    Serial.println(my_lng, 8);  // Print longitude with 8 decimal places
+  }
+}
+
+// Haversine Formula to calculate distance in yards
+float distance(float lat1, float lon1, float lat2, float lon2) {
+  const float R = 6371.0f; // Earth radius in kilometers
+  float lat1_rad = lat1 * 3.141592653589793 / 180.0f; // Convert degrees to radians
+  float lon1_rad = lon1 * 3.141592653589793 / 180.0f;
+  float lat2_rad = lat2 * 3.141592653589793 / 180.0f;
+  float lon2_rad = lon2 * 3.141592653589793 / 180.0f;
+
+  // Differences in coordinates
+  float dlat = lat2_rad - lat1_rad;
+  float dlon = lon2_rad - lon1_rad;
+
+  // Haversine formula
+  float a = sin(dlat / 2.0f) * sin(dlat / 2.0f) + cos(lat1_rad) * cos(lat2_rad) * sin(dlon / 2.0f) * sin(dlon / 2.0f);
+  float c = 2.0f * atan2(sqrt(a), sqrt(1.0f - a));
+
+  // Distance in kilometers
+  float distance_km = R * c;
+
+  // Convert kilometers to yards (1 km = 1093.613298 yards)
+  float distance_yards = distance_km * 1093.613298f;
+
+  return distance_yards;  // Return distance in yards
+}
+
+void setup() {
+  Serial.begin(115200);  // Sets the data rate for serial data transmission
   
   // BT: Define the Bt_Status callback
-  SerialBT.register_callback (Bt_Status);
-  // BT: Starts the bluetooth device with the name stored in the device_name variable
+  SerialBT.register_callback(Bt_Status);
+  // BT: Starts the Bluetooth device with the name stored in the device_name variable
   SerialBT.begin(device_name);
   Serial.printf("The device with name \"%s\" and MAC address \"%s\" is started.\nNow you can pair it with Bluetooth!\n", device_name.c_str(), MACadd.c_str());
+
+  // Initialize the GPS serial communication
+  gpsSerial.begin(9600, SERIAL_8N1, 16, 17);  // GPS module connected to pins 16 (RX) and 17 (TX)
 }
 
-void loop() 
-{
-  // BT: Data send/receive via bluetooth
-  if (Serial.available()) {                                                       // BT: Checks if there are data from the serial monitor available
-    SerialBT.write(Serial.read());                                                // BT: Sends the data via bluetooth
+void loop() {
+  getGPSData();  // Get the current GPS data
+
+  if (MasterConnected) {
+    // BT: Check if data is available from the Bluetooth
+    if (SerialBT.available()) {  
+      gpsData = SerialBT.readStringUntil('\n');  // Read the GPS data string sent from the master
+      gpsData.trim();  // Remove any trailing newlines or spaces
+      gps_parse(gpsData);  // Pass gpsData to gps_parse function
+    }
+  } else {
+    Serial.println("Waiting for Master to connect...");
   }
-  if (SerialBT.available()) {                                                     // BT: Checks if there are data from the bluetooth available
-    Serial.write(SerialBT.read());                                                // BT: Write the data to the serial monitor
-  }
+
+  // Calculate the distance between the current GPS location and the Master
+  float dist = distance(Master_latitude, Master_longitude, my_lat, my_lng);
+  Serial.print("Distance to Master: ");
+  Serial.print(dist);  // Print distance in yards
+  Serial.println(" yards");
+
+  delay(1000);  // Delay for a second before repeating the loop
 }
