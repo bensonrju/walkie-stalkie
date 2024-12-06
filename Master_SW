@@ -10,7 +10,6 @@ HardwareSerial gpsSerial(2);
 BluetoothSerial SerialBT;
 
 unsigned long previousMillisReconnect;
-bool ledBtState = false;
 bool SlaveConnected = false;
 int recatt = 0;
 
@@ -54,12 +53,13 @@ void SlaveConnect() {
 void getGPSData() {
   while (gpsSerial.available() > 0) {
     gps.encode(gpsSerial.read());
-
+    delay(10);
     if (gps.location.isUpdated()) {
-      Serial.print("Latitude: ");
-      Serial.print(gps.location.lat(), 8);
-      Serial.print(" Longitude: ");
-      Serial.println(gps.location.lng(), 8);
+      String gpsData = "Latitude: " + String(gps.location.lat(), 8) + " Longitude: " + String(gps.location.lng(), 8);
+      Serial.println(gpsData);  // Print GPS data to serial monitor
+      if (SlaveConnected) {
+        SerialBT.println(gpsData);  // Send GPS data to the slave via Bluetooth
+      }
     }
   }
 }
@@ -92,4 +92,6 @@ void loop() {
   if (SerialBT.available()) {
     Serial.write(SerialBT.read());
   }
+
+  delay(1000);  // Send data every 10 seconds
 }
