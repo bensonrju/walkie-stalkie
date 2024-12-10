@@ -59,6 +59,7 @@ void getGPSData() {
       Serial.println(gpsData);  // Print GPS data to serial monitor
       if (SlaveConnected) {
         SerialBT.println(gpsData);  // Send GPS data to the slave via Bluetooth
+
       }
     }
   }
