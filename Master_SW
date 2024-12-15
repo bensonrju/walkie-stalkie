@@ -51,11 +51,11 @@ void SlaveConnect() {
 }
 
 void getGPSData() {
-  while (gpsSerial.available() > 0) {
-    gps.encode(gpsSerial.read());
+  while (gpsSerial.available() > 0) {//checks for serial connection
+    gps.encode(gpsSerial.read());//encodes data from serial connection(tinyGPSPlus)
     delay(10);
     if (gps.location.isUpdated()) {
-      String gpsData = "Latitude: " + String(gps.location.lat(), 8) + " Longitude: " + String(gps.location.lng(), 8);
+      String gpsData = "Latitude: " + String(gps.location.lat(), 8) + " Longitude: " + String(gps.location.lng(), 8);//packages the data for easier sending
       Serial.println(gpsData);  // Print GPS data to serial monitor
       if (SlaveConnected) {
         SerialBT.println(gpsData);  // Send GPS data to the slave via Bluetooth
