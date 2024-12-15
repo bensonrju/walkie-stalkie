@@ -77,7 +77,7 @@ void getGPSData() {
     my_lat = gps.location.lat();  // Get the latitude from the GPS module
     my_lng = gps.location.lng();  // Get the longitude from the GPS module
 
-    // Print the current GPS coordinates
+    // Print the current GPS coordinates for debugging.
     Serial.print("Current Latitude: ");
     Serial.println(my_lat, 8);  // Print latitude with 8 decimal places
     Serial.print("Current Longitude: ");
