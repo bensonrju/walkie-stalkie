@@ -6,7 +6,7 @@
 #define GPS_RX_PIN 16
 #define GPS_TX_PIN 17
 // Pins for Display
-#define RS 27
+#define RS 13
 #define EN 14
 #define D4 26
 #define D5 25
@@ -62,11 +62,11 @@ void Bt_Status(esp_spp_cb_event_t event, esp_spp_cb_param_t* param) {
   if (event == ESP_SPP_SRV_OPEN_EVT) {  // BT: Checks if the SPP Server connection is open
     Serial.println("Master Connected");
     MasterConnected = true;  // BT: Server is connected to the slave
-    //digitalWrite(LED_BT, HIGH);             // Turn LED on
+    digitalWrite(LED_BT, HIGH);             // Turn LED on
   } else if (event == ESP_SPP_CLOSE_EVT) {  // BT: Checks if the SPP connection is closed
     Serial.println("Master Disconnected");
     MasterConnected = false;  // BT: Server connection lost
-    //digitalWrite(LED_BT, LOW);  // Turn LED off
+    digitalWrite(LED_BT, LOW);  // Turn LED off
   }
 }
 
@@ -100,13 +100,6 @@ bool gps_parse(String gpsData) {
     Serial.print("Received GPS Data: ");
     Serial.println(gpsData);  // Print the received GPS data to the serial monitor
 
-    // Find the start and end positions of the latitude value
-    // int latStart = gpsData.indexOf("Latitude:") + 12;  // Find start of "Latitude:"
-    // int latEnd = gpsData.indexOf("Longitude:");        // Find start of "Longitude:"
-
-    // Find the start position of the longitude value
-    // int lonStart = latEnd + 12;  // Start of "Longitude:" plus its length
-
     // Find the start and end positions of the latitude value int latStart = gpsData.indexOf("Latitude:") + 9;  // Start after "Latitude:"
     int latStart = gpsData.indexOf("Latitude:") + 9;    // The start of the latitude number (after "Latitude:")
     int latEnd = gpsData.indexOf("Longitude:") - 1;     // The end of the latitude value, before "Longitude:"
@@ -117,23 +110,6 @@ bool gps_parse(String gpsData) {
       Serial.println("Error: Unable to parse latitude and longitude.");
       return false;
     }
-
-    // // Extract latitude and longitude strings dynamically
-    // char latStr[34] = { 0 }, lonStr[34] = { 0 };
-    // strncpy(latStr, gpsData.c_str() + latStart, latEnd - latStart);  // Extract latitude
-    // latStr[latEnd - latStart] = '\0';                                // Null terminate the string
-
-    // strncpy(lonStr, gpsData.c_str() + lonStart, 34);  // Extract longitude
-    // lonStr[31] = '\0';                                // Ensure null termination
-
-    // if ((latEnd - latStart) >= sizeof(latStr) || (strlen(gpsData.c_str() + lonStart) >= sizeof(lonStr))) {
-    //   Serial.println("Error: Extracted GPS data too large.");
-    //   return false;
-    // }
-
-    // // Convert the substrings to double values using atof() (ASCII to float, but returns double)
-    // Master_latitude = (double)atof(latStr);
-    // Master_longitude = (double)atof(lonStr);
 
     // Use String.substring() to extract latitude and longitude
     String latStr = gpsData.substring(latStart, latEnd);
@@ -543,15 +519,7 @@ void loop() {
       return;                                                          // Exit if the GPS location is invalid.
     }
 
-    // Calculate distance to the master device using the Haversine formula.
-    // double dist = distance(Master_latitude, Master_longitude, my_lat, my_lng);
-    // Serial.printf("Distance to Master: %.2f yards\n", dist); // Print the calculated distance to the serial monitor
-    // Calculate the direction (bearing) to the master device.
-    // double dir = direction(Master_latitude, Master_longitude, my_lat, my_lng);
-    // Serial.printf("Direction to Master: %.2f degrees\n", dir); // Print the calculated direction to the serial monitor
-
     // Update the LCD display with the current distance and direction.
-    //display(dist, dir);
     updateDisplay();
 
     // Log additional data to the serial monitor
