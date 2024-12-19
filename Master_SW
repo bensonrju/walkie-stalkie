@@ -35,13 +35,13 @@ void setup() {
   Serial.begin(115200);
   gpsSerial.begin(GPS_BAUD, SERIAL_8N1, RXD2, TXD2);
 
-  // Set up Bluetooth callback
+  //Set up Bluetooth callback
   SerialBT.register_callback(Bt_Status);
   SerialBT.begin(myName, true);
   Serial.printf("The device \"%s\" started in master mode\n", myName.c_str());
   
-  // Try connecting to the slave
-  SlaveConnect();  
+  //Try connecting to the slave
+ SlaveConnect();  
 }
 
 void SlaveConnect() {
@@ -50,12 +50,13 @@ void SlaveConnect() {
   SerialBT.connect(address);
 }
 
+
 void getGPSData() {
-  while (gpsSerial.available() > 0) {//checks for serial connection
-    gps.encode(gpsSerial.read());//encodes data from serial connection(tinyGPSPlus)
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
     delay(10);
     if (gps.location.isUpdated()) {
-      String gpsData = "Latitude: " + String(gps.location.lat(), 8) + " Longitude: " + String(gps.location.lng(), 8);//packages the data for easier sending
+      String gpsData = "Latitude: " + String(gps.location.lat(), 8) + " Longitude: " + String(gps.location.lng(), 8);
       Serial.println(gpsData);  // Print GPS data to serial monitor
       if (SlaveConnected) {
         SerialBT.println(gpsData);  // Send GPS data to the slave via Bluetooth
